@@ -2,91 +2,76 @@ pipeline {
     agent any
 
     environment {
-        EC2_USER    = "ubuntu"
-        EC2_HOST    = "54.84.36.120"
-
-        PROJECT_DIR = "/home/ubuntu/fullstack-project"
-        BACKEND_DIR = "/home/ubuntu/fullstack-project/backend"
-        FRONTEND_DIR = "/home/ubuntu/fullstack-project/frontend"
-
-        SSH_KEY = "/var/lib/jenkins/keys/UbuntuKeypair.pem"
+        FRONTEND_IMAGE = "raviteja0090/frontend-app:latest"
+        BACKEND_IMAGE  = "raviteja0090/backend-app:latest"
     }
 
     stages {
 
-        stage('Checkout Code') {
+        stage('Checkout') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/Gurraiah123/fullstack-project.git'
+                checkout scm
             }
         }
 
-        stage('Build Backend') {
+        stage('Build Frontend Image') {
             steps {
                 sh '''
-                    cd backend
-
-                    python3 -m venv venv
-                    ./venv/bin/pip install --upgrade pip
-                    ./venv/bin/pip install -r requirements.txt
+                docker build -t $FRONTEND_IMAGE ./frontend
                 '''
             }
         }
 
-        stage('Build Frontend') {
+        stage('Build Backend Image') {
             steps {
                 sh '''
-                    cd frontend
-
-                    npm install
-                    npm run build
+                docker build -t $BACKEND_IMAGE ./backend
                 '''
             }
         }
 
-        stage('Deploy to EC2') {
+        stage('Docker Login') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh '''
+                    echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                    '''
+                }
+            }
+        }
+
+        stage('Push Images') {
             steps {
                 sh '''
-                    echo "🚀 Deploying to EC2..."
-
-                    ssh -i $SSH_KEY -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "
-                        mkdir -p $BACKEND_DIR &&
-                        mkdir -p $FRONTEND_DIR/dist
-                    "
-
-                    rsync -avz --delete \
-                    -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" \
-                    backend/ \
-                    $EC2_USER@$EC2_HOST:$BACKEND_DIR/
-
-                    rsync -avz --delete \
-                    -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" \
-                    frontend/dist/ \
-                    $EC2_USER@$EC2_HOST:$FRONTEND_DIR/dist/
+                docker push $FRONTEND_IMAGE
+                docker push $BACKEND_IMAGE
                 '''
             }
         }
 
-        stage('Restart Services') {
+        stage('Deploy to Kubernetes') {
             steps {
                 sh '''
-                    ssh -i $SSH_KEY -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "
-                        sudo systemctl daemon-reload
-                        sudo systemctl restart fastapi
-                        sudo systemctl restart nginx
-                    "
+                kubectl apply -f k8s/backend-deployment.yaml
+                kubectl apply -f k8s/backend-service.yaml
+                kubectl apply -f k8s/frontend-deployment.yaml
+                kubectl apply -f k8s/frontend-service.yaml
                 '''
             }
         }
-    }
 
-    post {
-        success {
-            echo '✅ Deployment Successful'
-        }
-
-        failure {
-            echo '❌ Deployment Failed'
+        stage('Verify Deployment') {
+            steps {
+                sh '''
+                kubectl get deployments
+                kubectl get pods
+                kubectl get services
+                '''
+            }
         }
     }
 }
