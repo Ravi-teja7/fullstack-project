@@ -41,19 +41,19 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
 
           script: |
-            cd ~/fullstack-project
+  cd ~/fullstack-project
 
-            git pull origin main
+  git pull origin main
 
-            docker pull raviteja0090/frontend-app:latest
-            docker pull raviteja0090/backend-app:latest
+  docker pull raviteja0090/frontend-app:latest
+  docker pull raviteja0090/backend-app:latest
 
-            kubectl apply -f k8s/
+  sudo -u jenkins kubectl apply -f k8s/
 
-            kubectl rollout restart deployment frontend-deployment
-            kubectl rollout restart deployment backend-deployment
+  sudo -u jenkins kubectl rollout restart deployment frontend-deployment
+  sudo -u jenkins kubectl rollout restart deployment backend-deployment
 
-            kubectl rollout status deployment/frontend-deployment
-            kubectl rollout status deployment/backend-deployment
+  sudo -u jenkins kubectl rollout status deployment/frontend-deployment
+  sudo -u jenkins kubectl rollout status deployment/backend-deployment
 
-            kubectl get pods
+  sudo -u jenkins kubectl get pods
