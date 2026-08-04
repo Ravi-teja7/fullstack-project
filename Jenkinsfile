@@ -1,7 +1,6 @@
 pipeline {
 agent any
 
-```
 environment {
     NEXUS_URL = 'http://16.170.246.118:8081'
     REPOSITORY = 'raw-artifacts'
@@ -50,15 +49,14 @@ stages {
                 usernameVariable: 'NEXUS_USER',
                 passwordVariable: 'NEXUS_PASS'
             )]) {
-                sh '''
+                sh 
                 curl -u $NEXUS_USER:$NEXUS_PASS \
                   --upload-file frontend/frontend-dist.tar.gz \
                   $NEXUS_URL/repository/$REPOSITORY/frontend-dist.tar.gz
-                '''
+                
             }
         }
     }
 }
-```
 
 }
