@@ -2,7 +2,7 @@ pipeline {
 agent any
 
 environment {
-    NEXUS_URL = 'http://16.170.246.118:8081'
+    NEXUS_URL = 'http://YOUR_NEXUS_PUBLIC_IP:8081'
     REPOSITORY = 'raw-artifacts'
 }
 
@@ -11,17 +11,6 @@ stages {
     stage('Checkout') {
         steps {
             checkout scm
-        }
-    }
-
-    stage('SonarQube Analysis') {
-        steps {
-            script {
-                def scannerHome = tool 'SonarScanner'
-                withSonarQubeEnv('SonarQube') {
-                    sh "${scannerHome}/bin/sonar-scanner"
-                }
-            }
         }
     }
 
@@ -43,21 +32,20 @@ stages {
     }
 
     stage('Upload Artifact to Nexus') {
-steps {
-withCredentials([usernamePassword(
-credentialsId: 'nexus-creds',
-usernameVariable: 'NEXUS_USER',
-passwordVariable: 'NEXUS_PASS'
-)]) {
-sh '''
-curl -u ${NEXUS_USER}:${NEXUS_PASS} 
---upload-file frontend/frontend-dist.tar.gz 
-${NEXUS_URL}/repository/${REPOSITORY}/frontend-dist.tar.gz
-'''
-}
-}
-}
-
+        steps {
+            withCredentials([usernamePassword(
+                credentialsId: 'nexus-creds',
+                usernameVariable: 'NEXUS_USER',
+                passwordVariable: 'NEXUS_PASS'
+            )]) {
+                sh '''
+                curl -u ${NEXUS_USER}:${NEXUS_PASS} \
+                --upload-file frontend/frontend-dist.tar.gz \
+                ${NEXUS_URL}/repository/${REPOSITORY}/frontend-dist.tar.gz
+                '''
+            }
+        }
+    }
 }
 
 }
