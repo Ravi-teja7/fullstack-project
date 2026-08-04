@@ -2,7 +2,7 @@ pipeline {
 agent any
 
 environment {
-    NEXUS_URL = 'http://YOUR_NEXUS_PUBLIC_IP:8081'
+    NEXUS_URL = 'http://16.170.246.118:8081'
     REPOSITORY = 'raw-artifacts'
 }
 
