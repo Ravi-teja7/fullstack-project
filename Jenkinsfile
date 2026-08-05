@@ -2,7 +2,7 @@ pipeline {
 agent any
 
 environment {
-    NEXUS_URL = 'http://16.170.246.118:8081'
+    NEXUS_URL = 'http://16.171.254.155:8081'
     REPOSITORY = 'raw-artifacts'
 }
 
@@ -11,6 +11,17 @@ stages {
     stage('Checkout') {
         steps {
             checkout scm
+        }
+    }
+
+    stage('SonarQube Analysis') {
+        steps {
+            script {
+                def scannerHome = tool 'SonarScanner'
+                withSonarQubeEnv('SonarQube') {
+                    sh "${scannerHome}/bin/sonar-scanner"
+                }
+            }
         }
     }
 
@@ -45,6 +56,15 @@ stages {
                 '''
             }
         }
+    }
+}
+
+post {
+    success {
+        echo 'Build, SonarQube analysis, and Nexus upload completed successfully.'
+    }
+    failure {
+        echo 'Pipeline failed.'
     }
 }
 
