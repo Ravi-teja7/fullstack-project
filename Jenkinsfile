@@ -1,71 +1,54 @@
 pipeline {
-agent any
+    agent any
 
-environment {
-    NEXUS_URL = 'http://16.171.254.155:8081'
-    REPOSITORY = 'raw-artifacts'
-}
-
-stages {
-
-    stage('Checkout') {
-        steps {
-            checkout scm
-        }
+    environment {
+        DOCKER_IMAGE = "raviteja0090/fullstack-app:latest"
     }
 
-    stage('SonarQube Analysis') {
-        steps {
-            script {
-                def scannerHome = tool 'SonarScanner'
-                withSonarQubeEnv('SonarQube') {
-                    sh "${scannerHome}/bin/sonar-scanner"
+    stages {
+
+        stage("Checkout") {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage("SonarQube Analysis") {
+            steps {
+                script {
+                    def scannerHome = tool 'SonarScanner'
+                    withSonarQubeEnv('SonarQube') {
+                        sh "${scannerHome}/bin/sonar-scanner"
+                    }
+                }
+            }
+        }
+
+        stage("Build Docker Image") {
+            steps {
+                sh "docker build -t ${DOCKER_IMAGE} frontend"
+            }
+        }
+
+        stage("Push Docker Image") {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-creds',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh '''
+                    echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                    docker push ${DOCKER_IMAGE}
+                    '''
                 }
             }
         }
     }
 
-    stage('Build Frontend') {
-        steps {
-            dir('frontend') {
-                sh 'npm install'
-                sh 'npm run build'
-            }
+    post {
+        success {
+            echo "Build, SonarQube analysis, Docker build, and Docker push completed successfully."
         }
     }
-
-    stage('Package Artifact') {
-        steps {
-            dir('frontend') {
-                sh 'tar -czf frontend-dist.tar.gz dist'
-            }
-        }
-    }
-
-    stage('Upload Artifact to Nexus') {
-        steps {
-            withCredentials([usernamePassword(
-                credentialsId: 'nexus-creds',
-                usernameVariable: 'NEXUS_USER',
-                passwordVariable: 'NEXUS_PASS'
-            )]) {
-                sh '''
-                curl -u ${NEXUS_USER}:${NEXUS_PASS} \
-                --upload-file frontend/frontend-dist.tar.gz \
-                ${NEXUS_URL}/repository/${REPOSITORY}/frontend-dist.tar.gz
-                '''
-            }
-        }
-    }
-}
-
-post {
-    success {
-        echo 'Build, SonarQube analysis, and Nexus upload completed successfully.'
-    }
-    failure {
-        echo 'Pipeline failed.'
-    }
-}
-
 }
